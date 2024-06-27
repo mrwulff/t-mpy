@@ -1,0 +1,128 @@
+esphome:
+  name: temp
+
+esp8266:
+  board: nodemcuv2
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: "pi"
+  password: "blink182"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Temp Fallback Hotspot"
+    password: "RsYaQrXkpKZS"
+
+captive_portal:
+
+web_server:
+
+i2c:
+  sda: D1
+  scl: D2
+  scan: false
+
+font:
+  - file: 'NunitoSans.ttf'
+    id: font1
+    size: 12
+    
+  - file: 'NunitoSans.ttf'    
+    id: font2
+    size: 13
+    
+  - file: 'NunitoSans.ttf'   
+    id: font3
+    size: 40   
+  - file: 'NunitoSans.ttf'   
+    id: font4
+    size: 20   
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    
+    address: 0x3C
+    rotation: 270
+    lambda: |-
+     it.printf(0, 10, id(font4), "%.0f%%", id(humidity).state);
+     it.printf(0, 0, id(font2), "humidity:");
+
+     it.printf(0, 42, id(font3), "%.0f°", id(temperature_f).state); 
+     it.printf(0, 34, id(font2), "temp:");
+
+     it.printf(0, 100, id(font4), "%.0f°", id(dewPoint_F).state); 
+     it.printf(0, 88, id(font2), "dew point");
+
+
+sensor:
+  - platform: dht 
+    
+    pin: D5
+    model: DHT22_TYPE2
+    update_interval: 2s 
+    temperature:
+     id: "temperature"
+     name: "temperature"
+     
+    humidity:
+     id: "humidity"
+     name: "humidity"
+
+
+    
+  - platform: template
+    name: Temperature_F
+    id: temperature_f
+    lambda: return id(temperature).state * 9/5+32;
+    update_interval: 5s
+
+  - platform: template
+    name: dewPoint
+    id: dewPoint_F
+    lambda: return id(dewPoint2).state * 9/5+32;
+    update_interval: 5s
+
+
+  - platform: template
+    name: "Dew Point"
+    id: dewPoint
+    update_interval: 30s
+    device_class: temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0                                # formula is uncertain up to 0.35 degrees C = 0.63 degrees F for usual indoor temperatures
+    lambda: |- 
+        const float alpha = 6.112;                      // (hPa)
+        const float beta = 17.62;
+        const float lambda = 243.12;                    // (degrees C)
+
+        float RH = id(humidity).raw_state;              // Relative Humidity
+        float T = id(temperature).raw_state;            // Temperature in (degrees C)
+
+        float H = log( RH/100 ) + beta*T/(lambda+T);
+        return (lambda)*H/(beta - H);
+
+
+
+  - platform: template
+    name: "Dew Point"
+    id: dewPoint2
+    lambda: |-
+      return (243.5*(log(id(humidity).state/100)+((17.67*id(temperature).state)/
+      (243.5+id(temperature).state)))/(17.67-log(id(humidity).state/100)-
+      ((17.67*id(temperature).state)/(243.5+id(temperature).state))));
+    unit_of_measurement: °C
+    update_interval: 5s
+
+
